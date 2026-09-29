@@ -1,6 +1,6 @@
 // ============================================================
-// S.A.M. — PERSONAL AI ASSISTANT
-// GEMINI AI + MEMORY + VOICE + VISION + TOOLS
+// S.A.M. — SMART AI MULTI-TOOL ASSISTANT
+// Gemini + Memory + Voice + Vision + Smart Tools
 // ============================================================
 
 
@@ -14,13 +14,14 @@ if (!API_KEY) {
     API_KEY = prompt("Enter your Gemini API Key:");
 
     if (API_KEY) {
-        localStorage.setItem("sam_key", API_KEY.trim());
+        API_KEY = API_KEY.trim();
+        localStorage.setItem("sam_key", API_KEY);
     }
 }
 
 
 // ============================================================
-// GEMINI MODELS
+// 2. GEMINI MODELS
 // ============================================================
 
 const MODELS = [
@@ -31,7 +32,7 @@ const MODELS = [
 
 
 // ============================================================
-// 2. MEMORY SYSTEM
+// 3. MEMORY
 // ============================================================
 
 let MEMORY = JSON.parse(
@@ -47,7 +48,7 @@ function saveMemory() {
 
 
 // ============================================================
-// HTML ELEMENTS
+// 4. ELEMENTS
 // ============================================================
 
 const chat = document.getElementById("chat");
@@ -62,7 +63,7 @@ const imgInput = document.getElementById("img-input");
 
 
 // ============================================================
-// LOAD SAVED MEMORY
+// 5. LOAD MEMORY
 // ============================================================
 
 MEMORY.forEach(function (m) {
@@ -76,23 +77,33 @@ MEMORY.forEach(function (m) {
 
 
 // ============================================================
-// 3. TOOLS — THE HANDS
+// 6. TOOL STATE
+// ============================================================
+
+let stopwatchStart = null;
+let stopwatchTimer = null;
+
+let lastSamResponse = "";
+
+
+// ============================================================
+// 7. SMART TOOLS
 // ============================================================
 
 async function handleTools(text) {
 
-    const t = text.toLowerCase().trim();
+    const original = text.trim();
+    const t = original.toLowerCase();
 
 
     // ========================================================
-    // TOOL 1 — TIME
+    // TIME
     // ========================================================
 
     if (
-        /\btime\b/.test(t) ||
+        t === "time" ||
         t.includes("what time") ||
-        t.includes("current time") ||
-        t.includes("sam time")
+        t.includes("current time")
     ) {
 
         return (
@@ -104,13 +115,39 @@ async function handleTools(text) {
 
 
     // ========================================================
-    // TOOL 2 — WEATHER
+    // DATE
+    // ========================================================
+
+    if (
+        t === "date" ||
+        t.includes("today's date") ||
+        t.includes("what is the date") ||
+        t.includes("what day is today")
+    ) {
+
+        return (
+            "Today is " +
+            new Date().toLocaleDateString(
+                undefined,
+                {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric"
+                }
+            ) +
+            ", Boss."
+        );
+    }
+
+
+    // ========================================================
+    // WEATHER
     // ========================================================
 
     if (
         t.includes("weather") ||
-        t.includes("temperature") ||
-        t.includes("climate")
+        t.includes("temperature")
     ) {
 
         return new Promise(function (resolve) {
@@ -118,12 +155,11 @@ async function handleTools(text) {
             if (!navigator.geolocation) {
 
                 resolve(
-                    "Geolocation is not supported by this browser, Boss."
+                    "Geolocation is not supported."
                 );
 
                 return;
             }
-
 
             navigator.geolocation.getCurrentPosition(
 
@@ -131,33 +167,25 @@ async function handleTools(text) {
 
                     try {
 
-                        const latitude =
+                        const lat =
                             position.coords.latitude;
 
-                        const longitude =
+                        const lon =
                             position.coords.longitude;
 
-
-                        const response = await fetch(
-                            "https://api.open-meteo.com/v1/forecast" +
-                            "?latitude=" + latitude +
-                            "&longitude=" + longitude +
-                            "&current_weather=true"
-                        );
-
-
-                        if (!response.ok) {
-                            throw new Error("Weather request failed");
-                        }
-
+                        const response =
+                            await fetch(
+                                "https://api.open-meteo.com/v1/forecast" +
+                                "?latitude=" + lat +
+                                "&longitude=" + lon +
+                                "&current_weather=true"
+                            );
 
                         const data =
                             await response.json();
 
-
                         if (
-                            data.current_weather &&
-                            data.current_weather.temperature !== undefined
+                            data.current_weather
                         ) {
 
                             resolve(
@@ -169,28 +197,26 @@ async function handleTools(text) {
                         } else {
 
                             resolve(
-                                "I couldn't get the current weather, Boss."
+                                "Weather information is unavailable."
                             );
                         }
-
 
                     } catch (error) {
 
                         resolve(
-                            "Weather service error, Boss."
+                            "Unable to get weather information."
                         );
                     }
 
                 },
 
-
                 function () {
 
                     resolve(
-                        "I need location permission to check the weather, Boss."
+                        "Please allow location access to check the weather."
                     );
-                }
 
+                }
             );
 
         });
@@ -198,75 +224,53 @@ async function handleTools(text) {
 
 
     // ========================================================
-    // TOOL 3 — TIMER
+    // TIMER
     // ========================================================
 
-    const timerMatch = t.match(
-        /(\d+)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)\b/i
-    );
+    const timerMatch =
+        t.match(
+            /(?:timer|set timer)\s*(?:for)?\s*(\d+)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)/i
+        );
 
-
-    if (
-        (
-            t.includes("timer") ||
-            t.includes("set timer")
-        ) &&
-        timerMatch
-    ) {
+    if (timerMatch) {
 
         const amount =
-            parseInt(timerMatch[1]);
-
+            Number(timerMatch[1]);
 
         const unit =
             timerMatch[2].toLowerCase();
 
-
-        let factor = 1000;
-
+        let milliseconds = amount * 1000;
 
         if (
             unit.startsWith("minute") ||
             unit.startsWith("min")
         ) {
-
-            factor = 60000;
+            milliseconds =
+                amount * 60000;
         }
-
 
         if (
             unit.startsWith("hour") ||
             unit.startsWith("hr")
         ) {
-
-            factor = 3600000;
+            milliseconds =
+                amount * 3600000;
         }
-
-
-        const duration =
-            amount * factor;
-
 
         setTimeout(function () {
 
-            const timerMessage =
-                "Boss, your " +
-                amount +
-                " " +
-                unit +
-                " timer is complete.";
-
+            const message =
+                "Boss, your timer is complete.";
 
             add(
-                "SAM: " + timerMessage,
+                "SAM: " + message,
                 "ai"
             );
 
+            speak(message);
 
-            speak(timerMessage);
-
-        }, duration);
-
+        }, milliseconds);
 
         return (
             "Timer set for " +
@@ -279,45 +283,198 @@ async function handleTools(text) {
 
 
     // ========================================================
-    // TOOL 4 — TRANSLATE TO TELUGU
+    // STOPWATCH START
     // ========================================================
 
-    if (t.includes("translate")) {
+    if (
+        t.includes("start stopwatch") ||
+        t === "start stopwatch"
+    ) {
 
-        let q = text
-            .replace(
-                /translate\s*(this)?\s*/i,
-                ""
-            )
-            .replace(
-                /\s*(to|into)\s*telugu\s*$/i,
-                ""
-            )
-            .trim();
+        if (stopwatchTimer) {
 
-
-        if (!q) {
-            q = "hello";
+            return "The stopwatch is already running.";
         }
 
+        stopwatchStart =
+            Date.now();
+
+        stopwatchTimer =
+            setInterval(function () {
+
+                const elapsed =
+                    Date.now() -
+                    stopwatchStart;
+
+                const seconds =
+                    Math.floor(
+                        elapsed / 1000
+                    );
+
+                const mins =
+                    Math.floor(
+                        seconds / 60
+                    );
+
+                const secs =
+                    seconds % 60;
+
+                const display =
+                    String(mins).padStart(2, "0") +
+                    ":" +
+                    String(secs).padStart(2, "0");
+
+                console.log(
+                    "SAM Stopwatch:",
+                    display
+                );
+
+            }, 1000);
+
+        return "Stopwatch started.";
+    }
+
+
+    // ========================================================
+    // STOPWATCH STOP
+    // ========================================================
+
+    if (
+        t.includes("stop stopwatch") ||
+        t.includes("stop the stopwatch")
+    ) {
+
+        if (!stopwatchTimer) {
+
+            return "The stopwatch is not running.";
+        }
+
+        clearInterval(
+            stopwatchTimer
+        );
+
+        stopwatchTimer = null;
+
+        const elapsed =
+            Date.now() -
+            stopwatchStart;
+
+        const seconds =
+            Math.floor(
+                elapsed / 1000
+            );
+
+        const mins =
+            Math.floor(
+                seconds / 60
+            );
+
+        const secs =
+            seconds % 60;
+
+        return (
+            "Stopwatch stopped at " +
+            mins +
+            " minutes " +
+            secs +
+            " seconds."
+        );
+    }
+
+
+    // ========================================================
+    // CALCULATOR
+    // ========================================================
+
+    const calcExpression =
+        original.match(
+            /^(?:calculate|calc|what is)\s+(.+)$/i
+        );
+
+    if (calcExpression) {
+
+        let expression =
+            calcExpression[1]
+                .replace(/×/g, "*")
+                .replace(/÷/g, "/")
+                .replace(/[^0-9+\-*/().%\s]/g, "");
+
+        if (!expression.trim()) {
+
+            return "I couldn't find a calculation.";
+        }
 
         try {
 
-            const response = await fetch(
-                "https://api.mymemory.translated.net/get?q=" +
-                encodeURIComponent(q) +
-                "&langpair=en|te"
-            );
+            // Calculator is restricted to mathematical characters.
+            const result =
+                Function(
+                    '"use strict"; return (' +
+                    expression +
+                    ")"
+                )();
 
+            if (
+                typeof result !== "number" ||
+                !Number.isFinite(result)
+            ) {
 
-            if (!response.ok) {
-                throw new Error("Translation request failed");
+                return "That calculation is not valid.";
             }
 
+            return (
+                "The answer is " +
+                result +
+                "."
+            );
+
+        } catch (error) {
+
+            return "I couldn't calculate that.";
+        }
+    }
+
+
+    // ========================================================
+    // TRANSLATE TO TELUGU
+    // ========================================================
+
+    if (
+        t.includes("translate") &&
+        (
+            t.includes("telugu") ||
+            t.includes("తెలుగు")
+        )
+    ) {
+
+        let phrase =
+            original
+                .replace(
+                    /translate/i,
+                    ""
+                )
+                .replace(
+                    /to\s+telugu/i,
+                    ""
+                )
+                .trim();
+
+        if (!phrase) {
+
+            return "Tell me what you want translated.";
+        }
+
+        try {
+
+            const response =
+                await fetch(
+                    "https://api.mymemory.translated.net/get?q=" +
+                    encodeURIComponent(phrase) +
+                    "&langpair=en|te"
+                );
 
             const data =
                 await response.json();
-
 
             if (
                 data.responseData &&
@@ -325,62 +482,254 @@ async function handleTools(text) {
             ) {
 
                 return (
-                    "In Telugu: " +
+                    "Telugu translation: " +
                     data.responseData.translatedText
                 );
             }
 
-
-            return (
-                "Translation service returned no result, Boss."
-            );
-
+            return "Translation unavailable.";
 
         } catch (error) {
 
+            return "Translation service error.";
+        }
+    }
+
+
+    // ========================================================
+    // YOUTUBE SEARCH
+    // ========================================================
+
+    if (
+        t.startsWith("youtube ") ||
+        t.startsWith("play ")
+    ) {
+
+        let query =
+            original
+                .replace(
+                    /^(youtube|play)\s+/i,
+                    ""
+                )
+                .trim();
+
+        if (query) {
+
+            window.open(
+                "https://www.youtube.com/results?search_query=" +
+                encodeURIComponent(query),
+                "_blank"
+            );
+
             return (
-                "Translation service error, Boss."
+                "Searching YouTube for " +
+                query +
+                "."
             );
         }
     }
 
 
     // ========================================================
-    // TOOL 5 — YOUTUBE SEARCH
+    // GOOGLE SEARCH
     // ========================================================
 
     if (
-        t.includes("youtube") ||
-        t.startsWith("play ")
+        t.startsWith("google ") ||
+        t.startsWith("search google ")
     ) {
 
-        let q = text
-            .replace(
-                /^(play|youtube|search youtube)\s*/i,
-                ""
-            )
-            .replace(
-                /\s*(on youtube|in youtube)$/i,
-                ""
-            )
-            .trim();
+        let query =
+            original
+                .replace(
+                    /^(google|search google)\s+/i,
+                    ""
+                )
+                .trim();
 
-
-        if (q) {
+        if (query) {
 
             window.open(
-                "https://www.youtube.com/results?search_query=" +
-                encodeURIComponent(q),
+                "https://www.google.com/search?q=" +
+                encodeURIComponent(query),
                 "_blank"
             );
 
-
             return (
-                "Searching YouTube for " +
-                q +
-                ", Boss."
+                "Searching Google for " +
+                query +
+                "."
             );
         }
+    }
+
+
+    // ========================================================
+    // LOCATION
+    // ========================================================
+
+    if (
+        t.includes("where am i") ||
+        t.includes("my location") ||
+        t.includes("current location")
+    ) {
+
+        if (!navigator.geolocation) {
+
+            return (
+                "Location services are not available."
+            );
+        }
+
+        return new Promise(function (resolve) {
+
+            navigator.geolocation.getCurrentPosition(
+
+                function (position) {
+
+                    resolve(
+                        "Your location coordinates are latitude " +
+                        position.coords.latitude.toFixed(4) +
+                        " and longitude " +
+                        position.coords.longitude.toFixed(4) +
+                        "."
+                    );
+
+                },
+
+                function () {
+
+                    resolve(
+                        "Please allow location access."
+                    );
+                }
+
+            );
+
+        });
+    }
+
+
+    // ========================================================
+    // RANDOM FACT
+    // ========================================================
+
+    if (
+        t.includes("random fact") ||
+        t.includes("tell me a fact") ||
+        t.includes("interesting fact")
+    ) {
+
+        const facts = [
+
+            "A day on Venus is longer than a year on Venus.",
+
+            "Honey can remain edible for an extremely long time when properly preserved.",
+
+            "Octopuses have three hearts.",
+
+            "Light from the Sun takes about eight minutes to reach Earth.",
+
+            "The human brain contains billions of neurons."
+
+        ];
+
+        return (
+            facts[
+                Math.floor(
+                    Math.random() *
+                    facts.length
+                )
+            ]
+        );
+    }
+
+
+    // ========================================================
+    // COPY LAST SAM RESPONSE
+    // ========================================================
+
+    if (
+        t.includes("copy last response") ||
+        t.includes("copy your last response")
+    ) {
+
+        if (!lastSamResponse) {
+
+            return "There is no SAM response to copy yet.";
+        }
+
+        try {
+
+            await navigator.clipboard.writeText(
+                lastSamResponse
+            );
+
+            return "My last response has been copied.";
+        } catch (error) {
+
+            return "I couldn't access the clipboard.";
+        }
+    }
+
+
+    // ========================================================
+    // SPEAK AGAIN
+    // ========================================================
+
+    if (
+        t === "speak again" ||
+        t === "repeat that" ||
+        t === "say that again"
+    ) {
+
+        if (!lastSamResponse) {
+
+            return "There is nothing to repeat.";
+        }
+
+        speak(lastSamResponse);
+
+        return "Repeating my last response.";
+    }
+
+
+    // ========================================================
+    // CLEAR CHAT COMMAND
+    // ========================================================
+
+    if (
+        t === "clear memory" ||
+        t === "forget everything"
+    ) {
+
+        MEMORY = [];
+
+        saveMemory();
+
+        chat.innerHTML = "";
+
+        return "SAM memory has been cleared.";
+    }
+
+
+    // ========================================================
+    // HELP
+    // ========================================================
+
+    if (
+        t === "sam tools" ||
+        t === "show tools" ||
+        t === "what can you do"
+    ) {
+
+        return (
+            "SAM tools available: " +
+            "time, date, weather, timer, stopwatch, " +
+            "calculator, Telugu translation, YouTube search, " +
+            "Google search, location, random facts, clipboard, " +
+            "voice and image analysis."
+        );
     }
 
 
@@ -393,30 +742,39 @@ async function handleTools(text) {
 
 
 // ============================================================
-// 4. GEMINI BRAIN
+// 8. GEMINI BRAIN
 // ============================================================
 
 async function callGemini(promptText) {
 
-    const contents = MEMORY
-        .slice(-12)
-        .map(function (m) {
+    if (!API_KEY) {
 
-            return {
+        throw new Error(
+            "Gemini API key is missing."
+        );
+    }
 
-                role:
-                    m.role === "model"
-                        ? "model"
-                        : "user",
+    const contents =
+        MEMORY
+            .slice(-12)
+            .map(function (m) {
 
-                parts: [
-                    {
-                        text: m.text
-                    }
-                ]
-            };
+                return {
 
-        });
+                    role:
+                        m.role === "model"
+                            ? "model"
+                            : "user",
+
+                    parts: [
+                        {
+                            text: m.text
+                        }
+                    ]
+
+                };
+
+            });
 
 
     contents.push({
@@ -439,29 +797,25 @@ async function callGemini(promptText) {
 
         try {
 
-            const response = await fetch(
+            const response =
+                await fetch(
+                    "https://generativelanguage.googleapis.com/v1beta/models/" +
+                    model +
+                    ":generateContent?key=" +
+                    encodeURIComponent(API_KEY),
+                    {
+                        method: "POST",
 
-                "https://generativelanguage.googleapis.com/v1beta/models/" +
-                model +
-                ":generateContent?key=" +
-                encodeURIComponent(API_KEY),
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
 
-                {
-
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-
-                    body: JSON.stringify({
-
-                        contents: contents
-
-                    })
-
-                }
-            );
+                        body: JSON.stringify({
+                            contents: contents
+                        })
+                    }
+                );
 
 
             const data =
@@ -476,15 +830,15 @@ async function callGemini(promptText) {
                         "Gemini API error"
                     );
 
-
                 if (
                     /high demand|temporar|quota|rate|unavailable|deprecated|not found/i
-                        .test(data.error.message || "")
+                        .test(
+                            data.error.message || ""
+                        )
                 ) {
 
                     continue;
                 }
-
 
                 throw lastError;
             }
@@ -493,12 +847,11 @@ async function callGemini(promptText) {
             if (
                 !data.candidates ||
                 !data.candidates[0] ||
-                !data.candidates[0].content ||
-                !data.candidates[0].content.parts
+                !data.candidates[0].content
             ) {
 
                 throw new Error(
-                    "Invalid response from Gemini."
+                    "Invalid Gemini response."
                 );
             }
 
@@ -508,490 +861,8 @@ async function callGemini(promptText) {
                 .content
                 .parts
                 .map(function (part) {
+
                     return part.text || "";
+
                 })
-                .join("");
-
-
-        } catch (error) {
-
-            lastError = error;
-        }
-    }
-
-
-    throw (
-        lastError ||
-        new Error("All Gemini models failed.")
-    );
-}
-
-
-// ============================================================
-// 5. ASK SAM
-// TOOLS FIRST → GEMINI SECOND
-// ============================================================
-
-async function askGemini(promptText) {
-
-    add(
-        "SAM: Thinking...",
-        "ai"
-    );
-
-
-    try {
-
-        // ----------------------------------------------------
-        // FIRST: CHECK SAM TOOLS
-        // ----------------------------------------------------
-
-        const toolResult =
-            await handleTools(promptText);
-
-
-        if (toolResult !== null) {
-
-            if (chat.lastChild) {
-
-                chat.lastChild.innerText =
-                    "SAM: " + toolResult;
-            }
-
-
-            MEMORY.push({
-                role: "user",
-                text: promptText
-            });
-
-
-            MEMORY.push({
-                role: "model",
-                text: toolResult
-            });
-
-
-            saveMemory();
-
-
-            speak(toolResult);
-
-
-            return;
-        }
-
-
-        // ----------------------------------------------------
-        // SECOND: GEMINI
-        // ----------------------------------------------------
-
-        if (!API_KEY) {
-
-            throw new Error(
-                "Gemini API key is missing."
-            );
-        }
-
-
-        const reply =
-            await callGemini(promptText);
-
-
-        MEMORY.push({
-            role: "user",
-            text: promptText
-        });
-
-
-        MEMORY.push({
-            role: "model",
-            text: reply
-        });
-
-
-        saveMemory();
-
-
-        if (chat.lastChild) {
-
-            chat.lastChild.innerText =
-                "SAM: " + reply;
-        }
-
-
-        speak(reply);
-
-
-    } catch (error) {
-
-        if (chat.lastChild) {
-
-            chat.lastChild.innerText =
-                "SAM: ERROR - " +
-                (
-                    error.message ||
-                    "Unknown error"
-                );
-        }
-    }
-}
-
-
-// ============================================================
-// 6. VISION ENGINE — CAMERA / IMAGE
-// ============================================================
-
-if (camBtn && imgInput) {
-
-    camBtn.onclick = function () {
-
-        imgInput.click();
-
-    };
-
-
-    imgInput.onchange = function () {
-
-        const file =
-            imgInput.files[0];
-
-
-        if (!file) {
-            return;
-        }
-
-
-        if (!file.type.startsWith("image/")) {
-
-            add(
-                "SAM: Please select an image file.",
-                "ai"
-            );
-
-            return;
-        }
-
-
-        const reader =
-            new FileReader();
-
-
-        reader.onload = function () {
-
-            const result =
-                reader.result;
-
-
-            const base64 =
-                result.split(",")[1];
-
-
-            const question =
-                input.value.trim() ||
-                "What do you see in this image? Describe it briefly.";
-
-
-            add(
-                "YOU: [IMAGE] " + question,
-                "user"
-            );
-
-
-            input.value = "";
-
-
-            askVision(
-                base64,
-                file.type,
-                question
-            );
-        };
-
-
-        reader.readAsDataURL(file);
-    };
-}
-
-
-// ============================================================
-// 7. IMAGE ANALYSIS
-// ============================================================
-
-async function askVision(
-    base64,
-    mimeType,
-    question
-) {
-
-    add(
-        "SAM: Analyzing image...",
-        "ai"
-    );
-
-
-    let lastError = null;
-
-
-    for (const model of MODELS) {
-
-        try {
-
-            const response = await fetch(
-
-                "https://generativelanguage.googleapis.com/v1beta/models/" +
-                model +
-                ":generateContent?key=" +
-                encodeURIComponent(API_KEY),
-
-                {
-
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-
-                    body: JSON.stringify({
-
-                        contents: [
-
-                            {
-
-                                role: "user",
-
-                                parts: [
-
-                                    {
-                                        text: question
-                                    },
-
-                                    {
-                                        inline_data: {
-                                            mime_type: mimeType,
-                                            data: base64
-                                        }
-                                    }
-
-                                ]
-
-                            }
-
-                        ]
-
-                    })
-
-                }
-            );
-
-
-            const data =
-                await response.json();
-
-
-            if (data.error) {
-
-                lastError =
-                    new Error(
-                        data.error.message ||
-                        "Vision API error"
-                    );
-
-
-                if (
-                    /high demand|temporar|quota|rate|unavailable|deprecated|not found/i
-                        .test(data.error.message || "")
-                ) {
-
-                    continue;
-                }
-
-
-                throw lastError;
-            }
-
-
-            if (
-                !data.candidates ||
-                !data.candidates[0] ||
-                !data.candidates[0].content ||
-                !data.candidates[0].content.parts
-            ) {
-
-                throw new Error(
-                    "Invalid image response."
-                );
-            }
-
-
-            const reply =
-                data.candidates[0]
-                    .content
-                    .parts
-                    .map(function (part) {
-                        return part.text || "";
-                    })
-                    .join("");
-
-
-            if (chat.lastChild) {
-
-                chat.lastChild.innerText =
-                    "SAM: " + reply;
-            }
-
-
-            MEMORY.push({
-                role: "user",
-                text: "[IMAGE] " + question
-            });
-
-
-            MEMORY.push({
-                role: "model",
-                text: reply
-            });
-
-
-            saveMemory();
-
-
-            speak(reply);
-
-
-            return;
-
-
-        } catch (error) {
-
-            lastError = error;
-        }
-    }
-
-
-    if (chat.lastChild) {
-
-        chat.lastChild.innerText =
-            "SAM: ERROR - " +
-            (
-                lastError?.message ||
-                "Image analysis failed."
-            );
-    }
-}
-
-
-// ============================================================
-// 8. VOICE INPUT
-// ============================================================
-
-const SpeechRecognition =
-    window.SpeechRecognition ||
-    window.webkitSpeechRecognition;
-
-
-if (SpeechRecognition && micBtn) {
-
-    const recognition =
-        new SpeechRecognition();
-
-
-    recognition.lang = "en-US";
-
-    recognition.continuous = false;
-
-    recognition.interimResults = false;
-
-
-    recognition.onresult =
-        function (event) {
-
-            const text =
-                event.results[0][0]
-                    .transcript;
-
-
-            add(
-                "YOU: " + text,
-                "user"
-            );
-
-
-            askGemini(text);
-        };
-
-
-    recognition.onerror =
-        function (event) {
-
-            console.log(
-                "Speech recognition error:",
-                event.error
-            );
-
-
-            micBtn.innerText =
-                "🎙️";
-        };
-
-
-    recognition.onend =
-        function () {
-
-            micBtn.innerText =
-                "🎙️";
-        };
-
-
-    micBtn.onclick =
-        function () {
-
-            try {
-
-                recognition.start();
-
-                micBtn.innerText =
-                    "LISTENING...";
-
-            } catch (error) {
-
-                console.log(error);
-            }
-        };
-}
-
-
-// ============================================================
-// 9. SAM VOICE OUTPUT
-// ============================================================
-
-let voices = [];
-
-
-function loadVoices() {
-
-    voices =
-        window.speechSynthesis
-            ? window.speechSynthesis.getVoices()
-            : [];
-}
-
-
-loadVoices();
-
-
-if ("speechSynthesis" in window) {
-
-    speechSynthesis.onvoiceschanged =
-        loadVoices;
-}
-
-
-function speak(text) {
-
-    if (
-        !text ||
-        !("speechSynthesis" in window)
-    ) {
-
-        return;
- 
+                .j
