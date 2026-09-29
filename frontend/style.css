@@ -1,1 +1,660 @@
+/* ============================================================
+   S.A.M. — PREMIUM GOLD AI HUD
+   ============================================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;800&display=swap');
+
+/* ============================================================
+   GLOBAL
+   ============================================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Orbitron', sans-serif;
+}
+
+body {
+    background:
+        radial-gradient(circle at center, #241800 0%, #090704 35%, #000 75%);
+    color: #f5c76a;
+    padding: 20px;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* Gold background grid */
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+
+    background-image:
+        linear-gradient(rgba(212, 158, 54, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(212, 158, 54, 0.035) 1px, transparent 1px);
+
+    background-size: 35px 35px;
+
+    pointer-events: none;
+    z-index: -2;
+}
+
+/* Central ambient glow */
+
+body::after {
+    content: "";
+    position: fixed;
+
+    width: 500px;
+    height: 500px;
+
+    left: 50%;
+    top: 45%;
+
+    transform: translate(-50%, -50%);
+
+    background: radial-gradient(
+        circle,
+        rgba(255, 190, 60, 0.08),
+        transparent 70%
+    );
+
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+header {
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+header h1 {
+    font-size: clamp(32px, 8vw, 58px);
+
+    letter-spacing: 10px;
+
+    color: #ffd875;
+
+    text-shadow:
+        0 0 5px #ffd875,
+        0 0 15px rgba(255, 183, 45, 0.8),
+        0 0 35px rgba(255, 150, 0, 0.35);
+
+    animation: titleGlow 3s ease-in-out infinite;
+}
+
+header p {
+    margin-top: 4px;
+
+    font-size: 10px;
+    letter-spacing: 5px;
+
+    color: #b8904a;
+    opacity: 0.8;
+}
+
+/* ============================================================
+   SAM CORE
+   ============================================================ */
+
+.core {
+    position: relative;
+
+    width: 190px;
+    height: 190px;
+
+    margin: 30px auto;
+}
+
+/* Outer decorative circle */
+
+.core::before {
+    content: "";
+
+    position: absolute;
+    inset: -15px;
+
+    border: 1px solid rgba(255, 193, 70, 0.25);
+
+    border-radius: 50%;
+
+    box-shadow:
+        0 0 20px rgba(255, 184, 52, 0.12),
+        inset 0 0 20px rgba(255, 184, 52, 0.08);
+
+    animation: outerPulse 3s infinite;
+}
+
+/* Rings */
+
+.ring {
+    position: absolute;
+
+    border: 2px solid #dcae4e;
+
+    border-radius: 50%;
+
+    box-shadow:
+        0 0 8px rgba(255, 192, 64, 0.8),
+        0 0 20px rgba(255, 170, 40, 0.25);
+}
+
+/* First ring */
+
+.r1 {
+    inset: 0;
+
+    border-top-color: transparent;
+    border-left-color: #ffd66e;
+
+    animation:
+        spin 4s linear infinite;
+}
+
+/* Second ring */
+
+.r2 {
+    inset: 24px;
+
+    border-bottom-color: transparent;
+    border-right-color: #ffe49a;
+
+    animation:
+        spin 2.5s linear infinite reverse;
+}
+
+/* Center */
+
+.center {
+    position: absolute;
+
+    inset: 65px;
+
+    background:
+        radial-gradient(
+            circle at 35% 30%,
+            #fff1b0,
+            #e8ae3e 40%,
+            #8d5d13 75%,
+            #3d2505
+        );
+
+    border-radius: 50%;
+
+    box-shadow:
+        0 0 15px #ffc857,
+        0 0 35px rgba(255, 183, 45, 0.8),
+        0 0 70px rgba(255, 166, 30, 0.3);
+
+    animation: corePulse 1.8s ease-in-out infinite;
+}
+
+/* ============================================================
+   CORE TEXT
+   ============================================================ */
+
+.core-text {
+    text-align: center;
+
+    font-size: 11px;
+
+    letter-spacing: 4px;
+
+    color: #e8b957;
+
+    text-shadow:
+        0 0 8px rgba(255, 190, 65, 0.5);
+}
+
+/* ============================================================
+   STATUS PANEL
+   ============================================================ */
+
+.status {
+    border: 1px solid rgba(220, 170, 70, 0.35);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(255, 200, 90, 0.08),
+            rgba(30, 20, 5, 0.75)
+        );
+
+    padding: 15px;
+
+    margin: 22px 0;
+
+    border-radius: 6px;
+
+    box-shadow:
+        0 0 20px rgba(255, 180, 40, 0.08),
+        inset 0 0 20px rgba(255, 190, 70, 0.03);
+
+    backdrop-filter: blur(8px);
+
+    position: relative;
+}
+
+/* Corner decoration */
+
+.status::before {
+    content: "";
+
+    position: absolute;
+
+    top: -1px;
+    left: -1px;
+
+    width: 35px;
+    height: 3px;
+
+    background: #ffd36a;
+
+    box-shadow: 0 0 10px #ffd36a;
+}
+
+.status h2 {
+    font-size: 12px;
+
+    letter-spacing: 3px;
+
+    margin-bottom: 12px;
+
+    color: #ffe09a;
+}
+
+/* ============================================================
+   STATUS ROWS
+   ============================================================ */
+
+.row {
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    gap: 10px;
+
+    font-size: 10px;
+
+    margin: 8px 0;
+
+    padding: 6px 4px;
+
+    border-bottom: 1px solid rgba(220, 170, 70, 0.08);
+}
+
+.row span {
+    color: #a98952;
+}
+
+.on {
+    color: #e9c66b;
+
+    text-shadow:
+        0 0 8px rgba(255, 193, 70, 0.6);
+}
+
+.off {
+    color: #ff5c4d;
+}
+
+/* ============================================================
+   CHAT
+   ============================================================ */
+
+.chat {
+    border: 1px solid rgba(220, 170, 70, 0.35);
+
+    height: 190px;
+
+    overflow-y: auto;
+
+    padding: 12px;
+
+    font-size: 11px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(255, 190, 50, 0.045),
+            rgba(0, 0, 0, 0.7)
+        );
+
+    border-radius: 5px;
+
+    box-shadow:
+        inset 0 0 20px rgba(255, 180, 40, 0.04);
+
+    scrollbar-width: thin;
+
+    scrollbar-color:
+        #b78329
+        #090704;
+}
+
+/* Chrome scrollbar */
+
+.chat::-webkit-scrollbar {
+    width: 5px;
+}
+
+.chat::-webkit-scrollbar-track {
+    background: #080604;
+}
+
+.chat::-webkit-scrollbar-thumb {
+    background: #a87520;
+    border-radius: 10px;
+}
+
+/* ============================================================
+   CHAT MESSAGES
+   ============================================================ */
+
+.msg {
+    margin: 7px 0;
+
+    padding: 9px 10px;
+
+    border-left: 2px solid #d9a73e;
+
+    background:
+        rgba(214, 158, 48, 0.07);
+
+    color: #e9c875;
+
+    line-height: 1.5;
+
+    box-shadow:
+        0 0 10px rgba(220, 160, 40, 0.03);
+}
+
+.msg.user {
+    border-left-color: #fff0bd;
+
+    color: #f8e6b1;
+
+    background:
+        rgba(255, 225, 150, 0.045);
+}
+
+.msg.ai {
+    border-left-color: #d6a33c;
+}
+
+/* ============================================================
+   INPUT AREA
+   ============================================================ */
+
+.input-area {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 8px;
+
+    margin-top: 12px;
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+
+input {
+    flex: 1 1 220px;
+
+    min-width: 0;
+
+    background:
+        rgba(8, 6, 2, 0.9);
+
+    border: 1px solid #a87825;
+
+    color: #ffe29a;
+
+    padding: 12px;
+
+    outline: none;
+
+    border-radius: 4px;
+
+    box-shadow:
+        inset 0 0 10px rgba(255, 180, 40, 0.04),
+        0 0 8px rgba(255, 180, 40, 0.04);
+
+    transition: 0.25s;
+}
+
+input::placeholder {
+    color: #806b45;
+}
+
+input:focus {
+    border-color: #f1c45c;
+
+    box-shadow:
+        0 0 10px rgba(255, 190, 50, 0.25),
+        inset 0 0 10px rgba(255, 180, 40, 0.05);
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+button {
+    background:
+        linear-gradient(
+            135deg,
+            #f5cc65,
+            #b77c1e
+        );
+
+    color: #160e02;
+
+    border: 1px solid #e8b94e;
+
+    padding: 11px 16px;
+
+    font-weight: 800;
+
+    letter-spacing: 1px;
+
+    cursor: pointer;
+
+    white-space: nowrap;
+
+    border-radius: 4px;
+
+    box-shadow:
+        0 0 10px rgba(255, 185, 45, 0.15);
+
+    transition:
+        transform 0.15s,
+        box-shadow 0.2s,
+        filter 0.2s;
+}
+
+button:hover {
+    filter: brightness(1.15);
+
+    box-shadow:
+        0 0 18px rgba(255, 190, 55, 0.4);
+}
+
+button:active {
+    transform: scale(0.96);
+}
+
+/* ============================================================
+   SPECIAL BUTTONS
+   ============================================================ */
+
+#mic-btn {
+    min-width: 55px;
+}
+
+#cam-btn {
+    min-width: 55px;
+}
+
+#clear-btn {
+    background:
+        linear-gradient(
+            135deg,
+            #3c2b12,
+            #171005
+        );
+
+    color: #d9ae54;
+
+    border-color: #76551f;
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes spin {
+
+    to {
+        transform: rotate(360deg);
+    }
+
+}
+
+@keyframes corePulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(0.82);
+
+        opacity: 0.65;
+    }
+
+}
+
+@keyframes outerPulse {
+
+    0%,
+    100% {
+        opacity: 0.45;
+    }
+
+    50% {
+        opacity: 0.9;
+    }
+
+}
+
+@keyframes titleGlow {
+
+    0%,
+    100% {
+        text-shadow:
+            0 0 5px #ffd875,
+            0 0 15px rgba(255, 183, 45, 0.7);
+    }
+
+    50% {
+        text-shadow:
+            0 0 8px #fff0ae,
+            0 0 28px rgba(255, 183, 45, 0.9),
+            0 0 50px rgba(255, 150, 0, 0.35);
+    }
+
+}
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 600px) {
+
+    body {
+        padding: 12px;
+    }
+
+    header h1 {
+        letter-spacing: 7px;
+    }
+
+    .core {
+        width: 165px;
+        height: 165px;
+        margin: 25px auto;
+    }
+
+    .center {
+        inset: 56px;
+    }
+
+    .r2 {
+        inset: 20px;
+    }
+
+    .input-area input {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+
+    .input-area button {
+        flex: 1 1 auto;
+
+        padding: 10px 9px;
+
+        font-size: 9px;
+    }
+
+    .row {
+        font-size: 9px;
+    }
+
+    .chat {
+        height: 180px;
+    }
+
+}
+
+/* ============================================================
+   SMALL PHONES
+   ============================================================ */
+
+@media (max-width: 380px) {
+
+    body {
+        padding: 9px;
+    }
+
+    header h1 {
+        font-size: 30px;
+        letter-spacing: 5px;
+    }
+
+    .status {
+        padding: 10px;
+    }
+
+    .row {
+        font-size: 8px;
+    }
+
+    button {
+        padding: 9px 8px;
+    }
+
+}
